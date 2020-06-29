@@ -2,7 +2,7 @@
 Description=Start car agent.
 
 [Service]
-ExecStart=/usr/bin/python3 async_agent.py
+ExecStart=/usr/bin/python3 agent.py
 WorkingDirectory=/home/pi/
 StandardOutput=inherit
 StandardError=inherit

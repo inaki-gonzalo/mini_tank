@@ -1,18 +1,11 @@
-import logging
-import json
-import pygame
-import pygame.camera
-
-import asyncio
-import aiohttp
-
-import cv2
-
 import ast
+import asyncio
+import json
+import logging
+import unittest
 
-# initialize the camera
-
-
+import aiohttp
+import cv2
 
 
 CAMERA_DEVICE = "/dev/video0"
@@ -26,17 +19,9 @@ class Camera(object):
     def __init__(self):
         message = 'Initializing camera, camera_device={}, resolution={}'
         logging.info(message.format(CAMERA_DEVICE, CAMERA_RESOLUTION))
-        #pygame.camera.init()
-        
-#         self.camera = pygame.camera.Camera(CAMERA_DEVICE, CAMERA_RESOLUTION)
-#         self.camera.start()
         self.camera = cv2.VideoCapture(0)   # 0 -> index of camera
-        #self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
-        #self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 640)
 
     async def get_image(self):
-        #img = self.camera.get_image()
-        #img = pygame.surfarray.array3d(img)
         done = False
         while not done:
             done, frame = self.camera.read()
@@ -46,7 +31,6 @@ class Camera(object):
             else:
                 await asyncio.sleep(0)
 
-import unittest
 
 async def autopilot(camera):
     while True:

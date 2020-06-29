@@ -1,27 +1,16 @@
-import aioserial
 import asyncio
 import json
 import logging
 
-logging.basicConfig(filename='robot_lib.log',
-                    level=logging.DEBUG,
-                    format='%(asctime)s %(message)s')
+import aioserial
+
 
 SERIAL_DEVICE = '/dev/ttyUSB0'
 BAUD_RATE = 115200
+BYPASS_COMMAND = b'B\n'
 
-class AsyncCommunications():
-    def __init__(self):
-        self.ser = aioserial.AioSerial(SERIAL_DEVICE, BAUD_RATE)    # open serial port
-        logging.info('Attached to serial port: {}'.format(self.ser.name))
-        self.ser.write(b'B\n')         # Bypass an go into raw serial mode.
-        logging.info('Entered Bypass mode')
-        self.raw_message = ''
 
-    def cleanup(self):
-        logging.info('Closing serial device.')
-        self.ser.close()
-
+class MessageParser():
     def proccess_message(self, message):
         try:
             message_dict = json.loads(message)
@@ -50,6 +39,22 @@ class AsyncCommunications():
             remainder_raw = raw_message[end_index + 1:]
         return message_complete, message, remainder_raw
 
+
+class Communications():
+    def __init__(self, serial_device=SERIAL_DEVICE, baud=BAUD_RATE):
+        self.ser = aioserial.AioSerial(
+            serial_device, baud)    # open serial port
+        logging.info('Attached to serial port: {}'.format(self.ser.name))
+        # Bypass an go into raw serial mode.
+        self.ser.write(BYPASS_COMMAND)
+        logging.info('Entered Bypass mode')
+        self.raw_message = ''
+        self.parser = MessageParser()
+
+    def cleanup(self):
+        logging.info('Closing serial device.')
+        self.ser.close()
+
     async def _get_message(self):
         try:
             raw_message = await self.ser.read_until_async(expected=b'}')
@@ -57,37 +62,18 @@ class AsyncCommunications():
         except UnicodeDecodeError:
             pass
 
-        ready, message, remainder_raw = self.proccess_raw_message(
+        ready, message, remainder_raw = self.parser.proccess_raw_message(
             self.raw_message)
 
         if ready:
-            message_dict = self.proccess_message(message)
+            message_dict = self.parser.proccess_message(message)
             self.raw_message = remainder_raw
             return message_dict
         else:
             return {}
-        
-    
+
     async def get_message(self, timeout=0.2):
         try:
             return await asyncio.wait_for(self._get_message(), timeout=timeout)
         except asyncio.TimeoutError:
             raise Exception('Timed out getting message.')
-        
-
-import unittest
-
-async def main():
-    com = AsyncCommunications()
-    message = {}
-    while message == {}:
-        message = await com.get_message()
-    print(message)
-    com.cleanup()
-class TestAsyncCommunication(unittest.TestCase):
-
-  def test_constructor(self):
-    asyncio.run(main())
-
-if __name__ == '__main__':
-    unittest.main()

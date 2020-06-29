@@ -5,24 +5,45 @@ import unittest
 
 import communications
 
-
 class TestCommunications(unittest.TestCase):
+    def setUp(self):
+        self.primary, self.secondary = pty.openpty()
+        s_name = os.ttyname(self.secondary)
+        self.comm = communications.Communications(serial_device=s_name)
+
+    def tearDown(self):
+        self.comm.cleanup()
+        del self.comm
+
+    def test_bypass_commands_sent(self):
+        raw_read = os.read(self.primary, 10)
+        self.assertEqual(raw_read, communications.BYPASS_COMMAND)
+    
+    def test_message_received(self):
+        os.write(self.primary, b'{"a":1,"b":2}')
+        message = asyncio.run(self.comm.get_message())
+        self.assertEqual(message, {"a": 1, "b": 2})
+    
+    def test_bad_message_received(self):
+        os.write(self.primary, b'{:1,"b":2}')
+        message = asyncio.run(self.comm.get_message())
+        self.assertEqual(message, {})
+    
+    def test_bad_char_received(self):
+        os.write(self.primary, b'{\xff\xff:1,"b":2}')
+        message = asyncio.run(self.comm.get_message())
+        self.assertEqual(message, {})
+    
+    def test_timeout(self):
+        with self.assertRaises(Exception):
+            message = asyncio.run(self.comm.get_message())
+
+class TestMessageParser(unittest.TestCase):
     def setUp(self):
         self.parser = communications.MessageParser()
 
     def tearDown(self):
-        del self.parser
-
-    def test_communications(self):
-        master, slave = pty.openpty()
-        s_name = os.ttyname(slave)
-        self.comm = communications.Communications(serial_device=s_name)
-        raw_read = os.read(master, 10)
-        self.assertEqual(raw_read, communications.BYPASS_COMMAND)
-        os.write(master, b'{"a":1,"b":2}')
-        message = asyncio.run(self.comm.get_message())
-        self.assertEqual(message, {"a": 1, "b": 2})
-        self.comm.cleanup()
+        del self.parser     
 
     def test_not_ready(self):
         current_message = ""
@@ -75,6 +96,3 @@ class TestCommunications(unittest.TestCase):
         self.assertEqual(message_dict['a'], 1.0)
         self.assertEqual(message_dict['b'], 2)
 
-
-if __name__ == '__main__':
-    unittest.main()

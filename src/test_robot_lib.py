@@ -21,14 +21,20 @@ class TestCamera(unittest.TestCase):
     def test_camera(self):
         image_shape = (*robot_lib.CAMERA_RESOLUTION[::-1], 3)
         image = np.zeros(image_shape)
-        self.camera.camera.read = Mock(return_value=(True, image))
-
+        self.camera.camera.read = Mock(return_value = (True, image))
         image = asyncio.run(self.camera.get_image())
         self.assertEqual(image.shape, image_shape)
+    
+    def test_no_image_available(self):
+        self.camera.camera.read = Mock(return_value = (False, []))
+        get_image_coro = asyncio.wait_for(self.camera.get_image(), timeout=0.01)
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.run(get_image_coro)
 
 
 class TestRobot(unittest.TestCase):
-    def setUp(self):
+    @patch('robot_lib.cv2.VideoCapture')
+    def setUp(self, mock_class=Mock()):
         self.robot = robot_lib.Robot()
 
     def tearDown(self):
@@ -38,7 +44,11 @@ class TestRobot(unittest.TestCase):
         self.robot.drive(0, 0)
         self.robot.stop()
         self.robot.cleanup()
-        pass
+        image_shape = (*robot_lib.CAMERA_RESOLUTION[::-1], 3)
+        image = np.zeros(image_shape)
+        self.robot.camera.camera.read = Mock(return_value=(True, image))
+        image = asyncio.run(self.robot.get_image())
+        self.assertEqual(image.shape, image_shape)
 
 
 class TestMotor(unittest.TestCase):
@@ -120,7 +130,3 @@ class TestMotor(unittest.TestCase):
         self.motor.drive(speed)
         self.motor.A.start.assert_called_once_with(0)
         self.motor.B.start.assert_called_once_with(0)
-
-
-if __name__ == '__main__':
-    unittest.main()

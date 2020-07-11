@@ -1,11 +1,18 @@
 import asyncio
-import unittest
 import sys
+import unittest
 from unittest.mock import Mock, patch, MagicMock
+from http import HTTPStatus
+from asynctest import CoroutineMock, patch
+
+
 import numpy as np
+
+
 
 sys.modules['RPi'] = Mock()
 sys.modules['RPi.GPIO'] = Mock()
+
 import robot_lib
 
 
@@ -21,13 +28,14 @@ class TestCamera(unittest.TestCase):
     def test_camera(self):
         image_shape = (*robot_lib.CAMERA_RESOLUTION[::-1], 3)
         image = np.zeros(image_shape)
-        self.camera.camera.read = Mock(return_value = (True, image))
+        self.camera.camera.read = Mock(return_value=(True, image))
         image = asyncio.run(self.camera.get_image())
         self.assertEqual(image.shape, image_shape)
-    
+
     def test_no_image_available(self):
-        self.camera.camera.read = Mock(return_value = (False, []))
-        get_image_coro = asyncio.wait_for(self.camera.get_image(), timeout=0.01)
+        self.camera.camera.read = Mock(return_value=(False, []))
+        get_image_coro = asyncio.wait_for(
+            self.camera.get_image(), timeout=0.01)
         with self.assertRaises(asyncio.exceptions.TimeoutError):
             asyncio.run(get_image_coro)
 
@@ -49,6 +57,61 @@ class TestRobot(unittest.TestCase):
         self.robot.camera.camera.read = Mock(return_value=(True, image))
         image = asyncio.run(self.robot.get_image())
         self.assertEqual(image.shape, image_shape)
+    
+    def test_post_request_ok(self):       
+        image_shape = (*robot_lib.CAMERA_RESOLUTION[::-1], 3)
+        image = np.zeros(image_shape)
+        post = self.robot.post_request
+        expected_base_speed = 1
+        expected_direction = 2
+        text = CoroutineMock()
+        text.return_value = str([[expected_base_speed, expected_direction]])
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_post.return_value.__aenter__.return_value.text = text
+            mock_post.return_value.__aenter__.return_value.status = HTTPStatus.OK
+            success, base_speed, direction = asyncio.run(post(image))
+        self.assertTrue(success)
+        self.assertEqual(base_speed, expected_base_speed)
+        self.assertEqual(direction, expected_direction)
+    
+    def test_post_request_fail(self):       
+        image_shape = (*robot_lib.CAMERA_RESOLUTION[::-1], 3)
+        image = np.zeros(image_shape)
+        post = self.robot.post_request
+        expected_base_speed = 1
+        expected_direction = 2
+        text = CoroutineMock()
+        text.return_value = str([[expected_base_speed, expected_direction]])
+        with patch('aiohttp.ClientSession.post') as mock_post:
+            mock_post.return_value.__aenter__.return_value.text = text
+            mock_post.return_value.__aenter__.return_value.status = HTTPStatus.FORBIDDEN
+            success, base_speed, direction = asyncio.run(post(image))
+        self.assertFalse(success)
+    
+    def mock_get_message(self, message):
+        get_message = CoroutineMock()
+        get_message.return_value = message
+        com = Mock()
+        com.get_message = get_message
+        self.robot.com = com
+    
+    def test_proccess_events_engage(self):
+        self.mock_get_message(message={'engage':''})
+        asyncio.run(self.robot.proccess_events())
+        self.assertTrue(self.robot.autopilot_engaged)
+    
+    def test_proccess_events_disengage(self):
+        self.mock_get_message(message={'disengage':''})
+        asyncio.run(self.robot.proccess_events())
+        self.assertFalse(self.robot.autopilot_engaged)
+    
+    def test_proccess_events_drive(self):
+        self.mock_get_message(message={'a':1, 'b': 1})
+        asyncio.run(self.robot.proccess_events())
+    
+    def test_proccess_events_erase(self):
+        self.mock_get_message(message={'erase':''})
+        asyncio.run(self.robot.proccess_events())
 
 
 class TestMotor(unittest.TestCase):

@@ -95,23 +95,23 @@ class TestRobot(unittest.TestCase):
         com.get_message = get_message
         self.robot.com = com
     
-    def test_proccess_events_engage(self):
+    def test_process_events_engage(self):
         self.mock_get_message(message={'engage':''})
-        asyncio.run(self.robot.proccess_events())
+        asyncio.run(self.robot.process_events())
         self.assertTrue(self.robot.autopilot_engaged)
     
-    def test_proccess_events_disengage(self):
+    def test_process_events_disengage(self):
         self.mock_get_message(message={'disengage':''})
-        asyncio.run(self.robot.proccess_events())
+        asyncio.run(self.robot.process_events())
         self.assertFalse(self.robot.autopilot_engaged)
     
-    def test_proccess_events_drive(self):
+    def test_process_events_drive(self):
         self.mock_get_message(message={'a':1, 'b': 1})
-        asyncio.run(self.robot.proccess_events())
+        asyncio.run(self.robot.process_events())
     
-    def test_proccess_events_erase(self):
+    def test_process_events_erase(self):
         self.mock_get_message(message={'erase':''})
-        asyncio.run(self.robot.proccess_events())
+        asyncio.run(self.robot.process_events())
 
 
 class TestMotor(unittest.TestCase):

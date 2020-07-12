@@ -26,7 +26,7 @@ async def autopilot():
         if not robot.autopilot_engaged:
             await asyncio.sleep(0.5)
             continue
-        robot.autopilot()
+        await robot.autopilot()
         await asyncio.sleep(0.1)
 
 

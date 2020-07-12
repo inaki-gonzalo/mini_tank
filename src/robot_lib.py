@@ -112,7 +112,7 @@ class Robot():
         self.right.drive(linear_speed + angular_velocity)
         self.left.drive(linear_speed - angular_velocity)
     
-    async def proccess_events(self):
+    async def process_events(self):
         try:
             message_dict = await self.com.get_message()
         except Exception:

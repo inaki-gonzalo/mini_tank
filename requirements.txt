@@ -1,0 +1,4 @@
+asyncio
+aiohttp
+cv2
+RPi.GPIO
